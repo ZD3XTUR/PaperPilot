@@ -7,17 +7,11 @@ from urllib.parse import quote
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(page_title="Research-Pilot Pro", page_icon="🛰️", layout="wide")
 
-# --- 2. SESSION STATE (Hafıza Yönetimi) ---
-if 'history' not in st.session_state:
-    st.session_state.history = []
-if 'library' not in st.session_state:
-    st.session_state.library = []
-if 'reading_list' not in st.session_state:
-    st.session_state.reading_list = []
-
-# KRİTİK: Arama kutusunu kontrol eden state
-if 'main_input' not in st.session_state:
-    st.session_state.main_input = ""
+# --- 2. SESSION STATE ---
+if 'history' not in st.session_state: st.session_state.history = []
+if 'library' not in st.session_state: st.session_state.library = []
+if 'reading_list' not in st.session_state: st.session_state.reading_list = []
+if 'main_input' not in st.session_state: st.session_state.main_input = ""
 
 # --- 3. DARK MODE & UI STYLING ---
 st.markdown("""
@@ -28,95 +22,90 @@ st.markdown("""
         padding: 20px;
         border-radius: 12px;
         border: 1px solid #30363d;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
     }
-    .res-title { color: #58a6ff; font-weight: 600; font-size: 18px; }
-    .item-box {
-        padding: 10px;
-        background: #0d1117;
-        border-left: 3px solid #ffaa00;
-        margin-bottom: 8px;
-        border-radius: 0 5px 5px 0;
+    .res-title { color: #58a6ff; font-weight: 600; font-size: 17px; margin-bottom: 10px; }
+    /* Emoji Butonları için Stil */
+    div.stButton > button {
+        border-radius: 8px;
+        padding: 5px 10px;
+        background-color: #21262d;
+        border: 1px solid #30363d;
+        color: white;
+    }
+    div.stButton > button:hover {
+        border-color: #58a6ff;
+        background-color: #30363d;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. SIDEBAR (RESEARCH HUB) ---
+# --- 4. SIDEBAR ---
 with st.sidebar:
     st.title("🛰️ Research Hub")
+    tabs = st.tabs(["📜 Geçmiş", "⭐ Yıldızlı", "📚 Okunacak"])
     
-    hub_tab1, hub_tab2, hub_tab3 = st.tabs(["📜 Geçmiş", "⭐ Favoriler", "📚 Okunacaklar"])
-    
-    with hub_tab1:
-        st.write("Tekrar aratmak için tıkla:")
-        if not st.session_state.history:
-            st.caption("Geçmiş boş.")
-        for h_query in reversed(st.session_state.history[-10:]):
-            # OTOMATİK ARAMA TETİKLEYİCİ
-            if st.button(f"🔍 {h_query}", key=f"btn_{h_query}"):
-                st.session_state.main_input = h_query # Input değerini güncelle
-                st.rerun() # Sayfayı zorla yenile
-
-    with hub_tab2:
+    with tabs[0]:
+        for h in reversed(st.session_state.history[-10:]):
+            if st.button(f"🔍 {h}", key=f"hist_{h}"):
+                st.session_state.main_input = h
+                st.rerun()
+    with tabs[1]:
         for item in st.session_state.library:
-            st.markdown(f'<div class="item-box" style="border-left-color:#3fb950;"><b>{item["title"][:40]}...</b><br><a href="{item["link"]}" target="_blank" style="color:#58a6ff; font-size:11px;">Aç ↗</a></div>', unsafe_allow_html=True)
-
-    with hub_tab3:
+            st.caption(f"⭐ {item['title'][:40]}...")
+            st.write(f"[Git ↗]({item['link']})")
+    with tabs[2]:
         for idx, paper in enumerate(st.session_state.reading_list):
-            st.markdown(f'<div class="item-box"><b>{paper["title"][:40]}...</b></div>', unsafe_allow_html=True)
-            if st.button(f"✅ Okundu", key=f"read_{idx}"):
+            st.caption(f"📚 {paper['title'][:40]}...")
+            if st.button(f"✅ Okundu", key=f"read_done_{idx}"):
                 st.session_state.reading_list.pop(idx)
                 st.rerun()
 
-# --- 5. ANA ARAYÜZ ---
-st.title("🛰️ Research-Pilot Pro")
+# --- 5. ANA EKRAN ---
+st.title("🛰️ Research-Pilot")
+query = st.text_input("Arama", value=st.session_state.main_input, placeholder="Konu girin...", key="search_bar")
 
-# KRİTİK DÜZELTME: value=st.session_state.main_input kullanımı
-query = st.text_input(
-    "Küresel Arama", 
-    value=st.session_state.main_input, 
-    placeholder="Araştırma konunuzu girin...",
-    key="search_widget" # Widget'ın kendi iç key'i
-)
-
-# Eğer kullanıcı kutuya elle bir şey yazarsa state'i güncelle
 if query != st.session_state.main_input:
     st.session_state.main_input = query
 
-result_count = st.select_slider("**Arama Derinliği**", options=[3, 5, 10, 15], value=5)
+depth = st.select_slider("Arama Derinliği", options=[3, 5, 10, 15], value=5)
 
 # --- 6. ARAMA MANTIĞI ---
 if st.session_state.main_input:
-    current_search = st.session_state.main_input
-    
-    # Geçmişe ekle
-    if current_search not in st.session_state.history:
-        st.session_state.history.append(current_search)
+    cur = st.session_state.main_input
+    if cur not in st.session_state.history: st.session_state.history.append(cur)
 
-    with st.spinner(f'"{current_search}" taranıyor...'):
-        tab1, tab2, tab3 = st.tabs(["🌐 Web", "🐙 GitHub", "📄 Akademik"])
+    with st.spinner('Taranıyor...'):
+        t1, t2, t3 = st.tabs(["🌐 Web", "🐙 GitHub", "📄 Akademik"])
 
-        # Örnek ArXiv Arama (Okuma Listesi Fonksiyonlu)
-        with tab3:
-            ar_url = f"http://export.arxiv.org/api/query?search_query=all:{quote(current_search)}&max_results={result_count}"
+        with t3: # ARXİV BÖLÜMÜ - ÖZEL BUTON SIRALAMASI
+            ar_url = f"http://export.arxiv.org/api/query?search_query=all:{quote(cur)}&max_results={depth}"
             try:
-                response = requests.get(ar_url, timeout=10).text
-                root = ET.fromstring(response)
+                root = ET.fromstring(requests.get(ar_url, timeout=10).text)
                 for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
-                    t = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
-                    l = entry.find('{http://www.w3.org/2005/Atom}id').text
+                    title = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
+                    link = entry.find('{http://www.w3.org/2005/Atom}id').text
                     
-                    st.markdown(f'<div class="res-card"><div class="res-title">{t[:100]}...</div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="res-card"><div class="res-title">{title[:120]}...</div></div>', unsafe_allow_html=True)
                     
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        if st.button(f"⭐ Favori", key=f"f_{l}"):
-                            st.session_state.library.append({"title": t, "link": l})
-                            st.toast("Favorilere eklendi!")
-                    with c2:
-                        if st.button(f"📚 Okunacaklar", key=f"r_{l}"):
-                            st.session_state.reading_list.append({"title": t, "link": l})
-                            st.toast("Okuma listesine eklendi!")
+                    # 👁️ Oku | 📚 Okunacaklar | ⭐ Yıldızla (Emoji Sıralaması)
+                    c1, c2, c3, c_spacer = st.columns([0.1, 0.1, 0.1, 0.7])
+                    
+                    with c1: # 👁️ OKU (Linke Git)
+                        st.link_button("👁️", link, help="Makaleyi Aç")
+                    
+                    with c2: # 📚 OKUNACAKLAR LİSTESİNE EKLE
+                        if st.button("📚", key=f"read_{link}", help="Okunacaklara Ekle"):
+                            if {"title": title, "link": link} not in st.session_state.reading_list:
+                                st.session_state.reading_list.append({"title": title, "link": link})
+                                st.toast("Okuma listesine eklendi!")
+                    
+                    with c3: # ⭐ YILDIZLA (FAVORİ)
+                        if st.button("⭐", key=f"star_{link}", help="Yıldızla / Favoriye Ekle"):
+                            if {"title": title, "link": link} not in st.session_state.library:
+                                st.session_state.library.append({"title": title, "link": link})
+                                st.toast("Kütüphaneye kaydedildi!")
+                                
             except: st.error("Bağlantı hatası.")
 
     st.balloons()
