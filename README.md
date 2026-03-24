@@ -33,7 +33,7 @@ The application is built on a Session-Based Caching architecture that minimizes 
 To deploy the project in a local environment:
 
 1. Clone the repository:
-   git clone https://github.com/username/research-pilot-pro.git
+   git clone https://github.com/ZD3XTUR/PaperPilot.git
 
 2. Install dependencies:
    pip install -r requirements.txt
