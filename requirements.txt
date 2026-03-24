@@ -1,5 +1,4 @@
-Plaintext
+# Plaintext
 
 streamlit
 requests
-googlesearch-python
