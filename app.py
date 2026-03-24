@@ -12,7 +12,7 @@ if 'library' not in st.session_state: st.session_state.library = []
 if 'reading_list' not in st.session_state: st.session_state.reading_list = []
 if 'search_query' not in st.session_state: st.session_state.search_query = ""
 
-# --- 3. ZEN & FUTURISTIC UI STYLING ---
+# --- 3. ZEN & FUTURISTIC UI STYLING (WITH FLAT SEARCH BOX) ---
 st.markdown("""
     <style>
     /* Global Background & Font */
@@ -41,20 +41,30 @@ st.markdown("""
         margin-bottom: 40px;
     }
 
-    /* Clean Search Input */
+    /* CRITICAL FIX: Clean, Flat, Single-Color Search Input */
     .stTextInput input {
-        background: rgba(255, 255, 255, 0.03) !important;
+        background-color: #0d1117 !important; /* Single Solid Dark Color */
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 50px !important;
         padding: 25px 30px !important;
         color: white !important;
         font-size: 1.2rem !important;
+        
+        /* Remove ALL shadows, gradients, and internal styling */
+        box-shadow: none !important;
+        background-image: none !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        appearance: none !important;
+        
         transition: 0.4s;
     }
+    
+    /* Input Focus State - Smooth Glow */
     .stTextInput input:focus {
         border-color: #58a6ff !important;
         box-shadow: 0 0 20px rgba(88, 166, 255, 0.15) !important;
-        background: rgba(255, 255, 255, 0.05) !important;
+        background-color: #0d1117 !important; /* Keep Single Color */
     }
 
     /* Result Cards (Minimalist) */
