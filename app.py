@@ -12,7 +12,7 @@ if 'library' not in st.session_state: st.session_state.library = []
 if 'reading_list' not in st.session_state: st.session_state.reading_list = []
 if 'search_query' not in st.session_state: st.session_state.search_query = ""
 
-# --- 3. UI STYLING (Birebir Korundu) ---
+# --- 3. UI STYLING (Dokunulmadı) ---
 st.markdown("""
     <style>
     .stApp { background: #05070a; font-family: 'Inter', sans-serif; }
@@ -36,7 +36,30 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. SIDEBAR (HUB - İstediğin Silme/Tamamlama Butonları Dahil) ---
+# --- 4. API FUNCTIONS (CACHED - Hataları Önleyen Kısım) ---
+@st.cache_data(ttl=600) # Veriyi 10 dakika hafızada tutar, butona basınca hata vermez
+def fetch_github(query):
+    try:
+        headers = {'User-Agent': 'ResearchPilot-App'}
+        res = requests.get(f"https://api.github.com/search/repositories?q={quote(query)}&sort=stars", headers=headers, timeout=10)
+        return res.json().get('items', [])[:5] if res.status_code == 200 else []
+    except: return []
+
+@st.cache_data(ttl=600)
+def fetch_arxiv(query):
+    try:
+        res = requests.get(f"https://export.arxiv.org/api/query?search_query=all:{quote(query)}&max_results=5", timeout=10).text
+        root = ET.fromstring(res)
+        results = []
+        for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
+            results.append({
+                'title': entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', ''),
+                'link': entry.find('{http://www.w3.org/2005/Atom}id').text
+            })
+        return results
+    except: return []
+
+# --- 5. SIDEBAR (HUB - Tüm Butonlar Aktif) ---
 with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #58a6ff;'>HUB</h2>", unsafe_allow_html=True)
     tab_hist, tab_fav, tab_read = st.tabs(["📜", "⭐", "📚"])
@@ -63,7 +86,7 @@ with st.sidebar:
             if c2.button("✔", key=f"read_done_{idx}"):
                 st.session_state.reading_list.pop(idx); st.rerun()
 
-# --- 5. MAIN CONTENT ---
+# --- 6. MAIN CONTENT ---
 st.markdown('<div class="hero-box"><div class="hero-title">Research Pilot</div></div>', unsafe_allow_html=True)
 
 _, col_m, _ = st.columns([0.15, 0.7, 0.15])
@@ -75,7 +98,7 @@ with col_m:
         if t_cols[i].button(t, key=f"t_btn_{i}", use_container_width=True):
             st.session_state.search_query = t; st.rerun()
 
-# --- 6. SEARCH LOGIC & CONNECTION ENGINE ---
+# --- 7. SEARCH LOGIC ---
 active_search = main_query if main_query else st.session_state.search_query
 
 if active_search:
@@ -91,51 +114,32 @@ if active_search:
         yt_url = f"https://www.youtube.com/results?search_query={quote(active_search)}"
         st.markdown(f'<div class="intel-card" style="text-align:center;"><div class="intel-title" style="color:#ff0000;">YouTube Archive</div><a href="{yt_url}" target="_blank"><button style="background:#ff0000; color:white; border:none; padding:15px 40px; border-radius:30px; font-weight:bold; cursor:pointer;">OPEN IN YOUTUBE 🎥</button></a></div>', unsafe_allow_html=True)
 
-    # Veri çekmek için güvenli bir Session oluşturuyoruz (Hata giderme anahtarı)
-    session = requests.Session()
-    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ResearchPilot/1.0'})
-
     with t_gh:
-        try:
-            gh_url = f"https://api.github.com/search/repositories?q={quote(active_search)}&sort=stars"
-            res = session.get(gh_url, timeout=12)
-            if res.status_code == 200:
-                items = res.json().get('items', [])[:5]
-                if not items: st.info("No code repositories found.")
-                for item in items:
-                    st.markdown(f'<div class="intel-card"><div class="intel-title">{item["full_name"]}</div><p style="color:#94a3b8; font-size:11px;">⭐ {item["stargazers_count"]}</p></div>', unsafe_allow_html=True)
-                    c1, c2, c3, _ = st.columns([0.1, 0.1, 0.1, 0.7])
-                    with c1: st.link_button("👁️", item['html_url'])
-                    with c2: 
-                        if st.button("📚", key=f"gh_r_{item['id']}"): 
-                            st.session_state.reading_list.append({"title": item['full_name'], "link": item['html_url']}); st.rerun()
-                    with c3:
-                        if st.button("⭐", key=f"gh_f_{item['id']}"): 
-                            st.session_state.library.append({"title": item['full_name'], "link": item['html_url']}); st.rerun()
-            else:
-                st.warning(f"GitHub limit reached (Status: {res.status_code}). Please wait a moment.")
-        except:
-            st.error("GitHub Connection Refused.")
+        gh_data = fetch_github(active_search)
+        if gh_data:
+            for item in gh_data:
+                st.markdown(f'<div class="intel-card"><div class="intel-title">{item["full_name"]}</div><p style="color:#94a3b8; font-size:11px;">⭐ {item["stargazers_count"]}</p></div>', unsafe_allow_html=True)
+                c1, c2, c3, _ = st.columns([0.1, 0.1, 0.1, 0.7])
+                with c1: st.link_button("👁️", item['html_url'])
+                with c2: 
+                    if st.button("📚", key=f"gh_r_{item['id']}"): 
+                        st.session_state.reading_list.append({"title": item['full_name'], "link": item['html_url']}); st.rerun()
+                with c3:
+                    if st.button("⭐", key=f"gh_f_{item['id']}"): 
+                        st.session_state.library.append({"title": item['full_name'], "link": item['html_url']}); st.rerun()
+        else: st.info("No GitHub data available or limit reached.")
 
     with t_ar:
-        try:
-            # ArXiv bazen SSL hataları verebilir, verify=False ekleyerek veya session ile aşabiliriz
-            ar_url = f"https://export.arxiv.org/api/query?search_query=all:{quote(active_search)}&max_results=5"
-            ar_res = session.get(ar_url, timeout=15).text
-            root = ET.fromstring(ar_res)
-            entries = root.findall('{http://www.w3.org/2005/Atom}entry')
-            if not entries: st.info("No academic papers found.")
-            for entry in entries:
-                title = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
-                link = entry.find('{http://www.w3.org/2005/Atom}id').text
-                st.markdown(f'<div class="intel-card"><div class="intel-title">{title}</div></div>', unsafe_allow_html=True)
+        ar_data = fetch_arxiv(active_search)
+        if ar_data:
+            for item in ar_data:
+                st.markdown(f'<div class="intel-card"><div class="intel-title">{item["title"]}</div></div>', unsafe_allow_html=True)
                 c1, c2, c3, _ = st.columns([0.1, 0.1, 0.1, 0.7])
-                with c1: st.link_button("👁️", link)
+                with c1: st.link_button("👁️", item['link'])
                 with c2:
-                    if st.button("📚", key=f"ar_r_{link[-10:]}"): 
-                        st.session_state.reading_list.append({"title": title, "link": link}); st.rerun()
+                    if st.button("📚", key=f"ar_r_{item['link'][-10:]}"): 
+                        st.session_state.reading_list.append({"title": item['title'], "link": item['link']}); st.rerun()
                 with c3:
-                    if st.button("⭐", key=f"ar_f_{link[-10:]}"): 
-                        st.session_state.library.append({"title": title, "link": link}); st.rerun()
-        except:
-            st.error("ArXiv Service Timeout. Please retry.")
+                    if st.button("⭐", key=f"ar_f_{item['link'][-10:]}"): 
+                        st.session_state.library.append({"title": item['title'], "link": item['link']}); st.rerun()
+        else: st.info("No ArXiv papers found.")
