@@ -1,16 +1,13 @@
- Research-Pilot 🚀
+# Research-Pilot 🚀
 
-An automated research tool that aggregates results from **Google**, **GitHub**, and **ArXiv** into a single, clean dashboard.
+An automated research dashboard that aggregates results from **Google**, **GitHub**, and **ArXiv**. Built with Python and Streamlit.
 
-## 🛠️ Tech Stack
-- **Frontend:** Streamlit
-- **Backend:** Python
-- **APIs:** GitHub REST API, ArXiv API, Google Search (Scraper)
+## ✨ Features
+- **Integrated Search:** Access web, code, and academic sources in one UI.
+- **Clean Interface:** Modern design for distraction-free research.
+- **English Comments:** Fully documented source code.
 
-## 🚀 Quick Start
-1. Clone the repository: `git clone https://github.com/YOUR_USERNAME/research-pilot.git`
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run the application: `streamlit run app.py`
-
-## 📄 License
-This project is open-source and available under the MIT License.
+## 🛠️ Setup
+1. Clone this repo.
+2. Install requirements: `pip install -r requirements.txt`.
+3. Run: `streamlit run app.py`.
