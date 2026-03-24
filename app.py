@@ -12,7 +12,7 @@ if 'library' not in st.session_state: st.session_state.library = []
 if 'reading_list' not in st.session_state: st.session_state.reading_list = []
 if 'search_query' not in st.session_state: st.session_state.search_query = ""
 
-# --- 3. UI STYLING ---
+# --- 3. UI STYLING (Birebir Korundu) ---
 st.markdown("""
     <style>
     .stApp { background: #05070a; font-family: 'Inter', sans-serif; }
@@ -36,7 +36,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. SIDEBAR (HUB - DÜZENLENMİŞ SÜRÜM) ---
+# --- 4. SIDEBAR (HUB - İstediğin Silme/Tamamlama Butonları Dahil) ---
 with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #58a6ff;'>HUB</h2>", unsafe_allow_html=True)
     tab_hist, tab_fav, tab_read = st.tabs(["📜", "⭐", "📚"])
@@ -50,22 +50,18 @@ with st.sidebar:
                     st.session_state.search_query = h; st.rerun()
                 
     with tab_fav:
-        # Favorileri silmek için Çarpı (✖) butonu eklendi
         for idx, item in enumerate(st.session_state.library):
             c1, c2 = st.columns([0.8, 0.2])
             c1.markdown(f"<small>[{item['title'][:20]}...]({item['link']})</small>", unsafe_allow_html=True)
             if c2.button("✖", key=f"fav_del_{idx}"):
-                st.session_state.library.pop(idx)
-                st.rerun()
+                st.session_state.library.pop(idx); st.rerun()
 
     with tab_read:
-        # Okundu işaretlemek için Tik (✔) butonu eklendi
         for idx, p in enumerate(st.session_state.reading_list):
             c1, c2 = st.columns([0.8, 0.2])
             c1.markdown(f"<small>📖 {p['title'][:20]}...</small>", unsafe_allow_html=True)
-            if c2.button("✔", key=st.random_char() if 'random_char' in dir(st) else f"read_done_{idx}"):
-                st.session_state.reading_list.pop(idx)
-                st.rerun()
+            if c2.button("✔", key=f"read_done_{idx}"):
+                st.session_state.reading_list.pop(idx); st.rerun()
 
 # --- 5. MAIN CONTENT ---
 st.markdown('<div class="hero-box"><div class="hero-title">Research Pilot</div></div>', unsafe_allow_html=True)
@@ -79,7 +75,7 @@ with col_m:
         if t_cols[i].button(t, key=f"t_btn_{i}", use_container_width=True):
             st.session_state.search_query = t; st.rerun()
 
-# --- 6. SEARCH LOGIC (DEĞİŞİKLİK YAPILMADI) ---
+# --- 6. SEARCH LOGIC & CONNECTION ENGINE ---
 active_search = main_query if main_query else st.session_state.search_query
 
 if active_search:
@@ -95,12 +91,18 @@ if active_search:
         yt_url = f"https://www.youtube.com/results?search_query={quote(active_search)}"
         st.markdown(f'<div class="intel-card" style="text-align:center;"><div class="intel-title" style="color:#ff0000;">YouTube Archive</div><a href="{yt_url}" target="_blank"><button style="background:#ff0000; color:white; border:none; padding:15px 40px; border-radius:30px; font-weight:bold; cursor:pointer;">OPEN IN YOUTUBE 🎥</button></a></div>', unsafe_allow_html=True)
 
+    # Veri çekmek için güvenli bir Session oluşturuyoruz (Hata giderme anahtarı)
+    session = requests.Session()
+    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ResearchPilot/1.0'})
+
     with t_gh:
         try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            res = requests.get(f"https://api.github.com/search/repositories?q={quote(active_search)}&sort=stars", headers=headers, timeout=10)
+            gh_url = f"https://api.github.com/search/repositories?q={quote(active_search)}&sort=stars"
+            res = session.get(gh_url, timeout=12)
             if res.status_code == 200:
-                for item in res.json().get('items', [])[:5]:
+                items = res.json().get('items', [])[:5]
+                if not items: st.info("No code repositories found.")
+                for item in items:
                     st.markdown(f'<div class="intel-card"><div class="intel-title">{item["full_name"]}</div><p style="color:#94a3b8; font-size:11px;">⭐ {item["stargazers_count"]}</p></div>', unsafe_allow_html=True)
                     c1, c2, c3, _ = st.columns([0.1, 0.1, 0.1, 0.7])
                     with c1: st.link_button("👁️", item['html_url'])
@@ -110,22 +112,30 @@ if active_search:
                     with c3:
                         if st.button("⭐", key=f"gh_f_{item['id']}"): 
                             st.session_state.library.append({"title": item['full_name'], "link": item['html_url']}); st.rerun()
-        except: st.error("GitHub Connection Error.")
+            else:
+                st.warning(f"GitHub limit reached (Status: {res.status_code}). Please wait a moment.")
+        except:
+            st.error("GitHub Connection Refused.")
 
     with t_ar:
         try:
-            ar_res = requests.get(f"https://export.arxiv.org/api/query?search_query=all:{quote(active_search)}&max_results=5", timeout=15).text
+            # ArXiv bazen SSL hataları verebilir, verify=False ekleyerek veya session ile aşabiliriz
+            ar_url = f"https://export.arxiv.org/api/query?search_query=all:{quote(active_search)}&max_results=5"
+            ar_res = session.get(ar_url, timeout=15).text
             root = ET.fromstring(ar_res)
-            for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
+            entries = root.findall('{http://www.w3.org/2005/Atom}entry')
+            if not entries: st.info("No academic papers found.")
+            for entry in entries:
                 title = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
                 link = entry.find('{http://www.w3.org/2005/Atom}id').text
                 st.markdown(f'<div class="intel-card"><div class="intel-title">{title}</div></div>', unsafe_allow_html=True)
                 c1, c2, c3, _ = st.columns([0.1, 0.1, 0.1, 0.7])
                 with c1: st.link_button("👁️", link)
                 with c2:
-                    if st.button("📚", key=f"ar_r_{link[:30]}"): 
+                    if st.button("📚", key=f"ar_r_{link[-10:]}"): 
                         st.session_state.reading_list.append({"title": title, "link": link}); st.rerun()
                 with c3:
-                    if st.button("⭐", key=f"ar_f_{link[:30]}"): 
+                    if st.button("⭐", key=f"ar_f_{link[-10:]}"): 
                         st.session_state.library.append({"title": title, "link": link}); st.rerun()
-        except: st.error("ArXiv Service Error.")
+        except:
+            st.error("ArXiv Service Timeout. Please retry.")
