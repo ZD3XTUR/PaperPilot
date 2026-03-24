@@ -12,12 +12,11 @@ if 'history' not in st.session_state: st.session_state.history = []
 if 'library' not in st.session_state: st.session_state.library = []
 if 'reading_list' not in st.session_state: st.session_state.reading_list = []
 
-# --- CALLBACK: The Secret Sauce ---
+# CALLBACK for History Search
 def trigger_history_search(query_from_button):
-    # This force-updates the widget's internal state
     st.session_state["search_bar_widget"] = query_from_button
 
-# --- 3. UI STYLING ---
+# --- 3. UI STYLING (Minimalist & Clean) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #fafafa; }
@@ -29,49 +28,82 @@ st.markdown("""
         margin-bottom: 10px;
     }
     .res-title { color: #58a6ff; font-weight: 600; font-size: 16px; margin-bottom: 5px; }
-    /* Sidebar History Buttons */
-    div.stButton > button {
-        background-color: #21262d;
+    
+    /* Sidebar Item Box */
+    .side-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #0d1117;
+        padding: 5px 10px;
+        border-radius: 5px;
+        margin-bottom: 5px;
         border: 1px solid #30363d;
-        color: white;
-        text-align: left;
-        width: 100%;
-        font-size: 13px;
     }
-    div.stButton > button:hover { border-color: #58a6ff; }
+    .side-text { font-size: 12px; color: #c9d1d9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+    
+    /* Hide Tab Labels (Make them icons only) */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] { font-size: 20px; }
+    
+    /* Sidebar Buttons */
+    div.stButton > button {
+        background-color: transparent;
+        border: none;
+        color: #8b949e;
+        padding: 0px;
+    }
+    div.stButton > button:hover { color: #ff7b72; border: none; background: transparent; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. SIDEBAR (RESEARCH HUB) ---
+# --- 4. SIDEBAR (ICON-ONLY NAVIGATION) ---
 with st.sidebar:
-    st.title("🛰️ Research Hub")
-    tabs = st.tabs(["📜 History", "⭐ Starred", "📚 Reading"])
+    st.title("🛰️ Hub")
     
-    with tabs[0]:
-        if not st.session_state.history:
-            st.caption("History is empty.")
+    # Tabs with Icons Only: 📜 (History), ⭐ (Starred), 📚 (Reading)
+    hub_tabs = st.tabs(["📜", "⭐", "📚"])
+    
+    with hub_tabs[0]: # HISTORY
+        col_h, col_del = st.columns([0.8, 0.2])
+        with col_h: st.write("History")
+        with col_del: 
+            if st.button("🗑️", key="del_all_hist", help="Clear All History"):
+                st.session_state.history = []
+                st.rerun()
+        
         for h in reversed(st.session_state.history[-15:]):
-            # ON_CLICK is the only way to guarantee the text box updates instantly
             st.button(f"🔍 {h}", key=f"btn_{h}", on_click=trigger_history_search, args=(h,))
 
-    with tabs[1]:
-        for item in st.session_state.library:
-            st.markdown(f'<div style="font-size:12px; margin-bottom:5px;">⭐ {item["title"][:40]}...</div>', unsafe_allow_html=True)
+    with hub_tabs[1]: # STARRED (Library)
+        st.write("Library")
+        for idx, item in enumerate(st.session_state.library):
+            # Container for the starred item and the "remove" button
+            c_text, c_remove = st.columns([0.8, 0.2])
+            with c_text:
+                st.markdown(f'<div class="side-text"><a href="{item["link"]}" target="_blank" style="color:#58a6ff; text-decoration:none;">{item["title"]}</a></div>', unsafe_allow_html=True)
+            with c_remove:
+                if st.button("✖️", key=f"rem_star_{idx}", help="Remove from Library"):
+                    st.session_state.library.pop(idx)
+                    st.rerun()
 
-    with tabs[2]:
+    with hub_tabs[2]: # READING LIST
+        st.write("Reading")
         for idx, paper in enumerate(st.session_state.reading_list):
-            st.caption(f"📚 {paper['title'][:40]}...")
-            if st.button("✅ Done", key=f"rd_{idx}"):
-                st.session_state.reading_list.pop(idx)
-                st.rerun()
+            c_text, c_check = st.columns([0.8, 0.2])
+            with c_text:
+                st.markdown(f'<div class="side-text">{paper["title"]}</div>', unsafe_allow_html=True)
+            with c_check:
+                if st.button("✔️", key=f"chk_read_{idx}", help="Mark as Read"):
+                    st.session_state.reading_list.pop(idx)
+                    st.rerun()
 
 # --- 5. MAIN INTERFACE ---
 st.title("🛰️ Research-Pilot Pro")
 
-# The 'key' here connects directly to the trigger_history_search function
 query = st.text_input(
     "Global Search", 
-    placeholder="Type and press Enter...",
+    placeholder="Type keywords...",
     key="search_bar_widget" 
 )
 
@@ -82,34 +114,31 @@ if query:
     if query not in st.session_state.history:
         st.session_state.history.append(query)
 
-    with st.spinner(f'Analyzing "{query}"...'):
-        t_web, t_gh, t_ar = st.tabs(["🌐 Web Index", "🐙 GitHub Code", "📄 Academic (ArXiv)"])
+    with st.spinner(f'Searching...'):
+        t_web, t_gh, t_ar = st.tabs(["🌐 Web", "🐙 Code", "📄 Paper"])
 
-        # WEB TAB
+        # WEB
         with t_web:
-            st.info("Direct Web Scanning enabled.")
             url = f"https://www.google.com/search?q={quote(query)}"
-            st.markdown(f'<div class="res-card"><div class="res-title">Web Results for: {query}</div><a href="{url}" target="_blank" style="color:#58a6ff;">Launch Live Scan ↗</a></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="res-card"><div class="res-title">Web Scan: {query}</div><a href="{url}" target="_blank" style="color:#58a6ff;">Launch ↗</a></div>', unsafe_allow_html=True)
 
-        # GITHUB TAB
+        # GITHUB
         with t_gh:
             try:
                 gh_res = requests.get(f"https://api.github.com/search/repositories?q={quote(query)}&sort=stars", timeout=10).json()
                 for item in gh_res.get('items', [])[:depth]:
-                    st.markdown(f'<div class="res-card"><div class="res-title">{item["full_name"]}</div><div style="font-size:13px; color:#8b949e;">{item["description"] or "No logs."}</div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="res-card"><div class="res-title">{item["full_name"]}</div></div>', unsafe_allow_html=True)
                     c1, c2, c3, _ = st.columns([0.1, 0.1, 0.1, 0.7])
                     with c1: st.link_button("👁️", item['html_url'])
                     with c2: 
                         if st.button("📚", key=f"r_gh_{item['id']}"):
                             st.session_state.reading_list.append({"title": item['full_name'], "link": item['html_url']})
-                            st.toast("Added to Reading List")
                     with c3:
                         if st.button("⭐", key=f"s_gh_{item['id']}"):
                             st.session_state.library.append({"title": item['full_name'], "link": item['html_url']})
-                            st.toast("Starred")
-            except: st.error("GitHub API offline.")
+            except: st.error("GitHub Error")
 
-        # ARXIV TAB
+        # ARXIV
         with t_ar:
             try:
                 ar_res = requests.get(f"http://export.arxiv.org/api/query?search_query=all:{quote(query)}&max_results={depth}", timeout=10).text
@@ -123,11 +152,7 @@ if query:
                     with c2:
                         if st.button("📚", key=f"r_ar_{link}"):
                             st.session_state.reading_list.append({"title": title, "link": link})
-                            st.toast("Added to Reading List")
                     with c3:
                         if st.button("⭐", key=f"s_ar_{link}"):
                             st.session_state.library.append({"title": title, "link": link})
-                            st.toast("Starred")
-            except: st.error("Academic database error.")
-
-    st.balloons()
+            except: st.error("Paper Error")
