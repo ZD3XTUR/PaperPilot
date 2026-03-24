@@ -12,18 +12,17 @@ if 'library' not in st.session_state: st.session_state.library = []
 if 'reading_list' not in st.session_state: st.session_state.reading_list = []
 if 'search_query' not in st.session_state: st.session_state.search_query = ""
 
-# --- 3. GÜÇLÜ VE TEMİZ CSS (TASARIM) ---
+# --- 3. CSS (TASARIM) ---
 st.markdown("""
     <style>
-    /* Arka Plan ve Genel Font */
     .stApp { background-color: #05070a; color: #ffffff; font-family: 'Inter', sans-serif; }
     
-    /* Hero Alanı */
-    .hero-box { padding: 40px 0 20px 0; text-align: center; }
-    .hero-title { font-size: 3.2rem; font-weight: 200; letter-spacing: -1px; margin-bottom: 5px; }
-    .hero-subtitle { color: #4b5563; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; }
+    /* Hero */
+    .hero-box { padding: 30px 0 10px 0; text-align: center; }
+    .hero-title { font-size: 3rem; font-weight: 200; color: #ffffff; margin-bottom: 0px; }
+    .hero-subtitle { color: #4b5563; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; }
 
-    /* Arama Kutusu Fix (Tek Katman, Pürüzsüz) */
+    /* Arama Kutusu - Tek Katman Fix */
     div[data-baseweb="input"] { background-color: transparent !important; border: none !important; }
     .stTextInput input {
         background-color: #0d1117 !important;
@@ -33,101 +32,108 @@ st.markdown("""
         color: white !important;
         box-shadow: none !important;
     }
-    .stTextInput input:focus { border-color: #58a6ff !important; box-shadow: 0 0 15px rgba(88, 166, 255, 0.1) !important; }
+    .stTextInput input:focus { border-color: #58a6ff !important; }
 
-    /* Video Kartları */
+    /* Trend Butonları */
+    .stButton button {
+        border-radius: 20px !important;
+        text-transform: uppercase;
+        font-size: 10px !important;
+        letter-spacing: 1px;
+    }
+
+    /* Kartlar */
     .video-card {
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 15px;
         padding: 12px;
-        margin-bottom: 20px;
-        transition: 0.3s;
+        margin-bottom: 15px;
     }
-    .video-card:hover { border-color: #ff0000; background: rgba(255, 0, 0, 0.03); }
-    .video-title { font-size: 0.9rem; font-weight: 600; color: #ffffff; margin: 10px 0 5px 0; height: 40px; overflow: hidden; }
+    .video-title { font-size: 0.85rem; font-weight: 600; color: #ffffff; margin-top: 8px; height: 35px; overflow: hidden; }
 
-    /* Akademik ve Kod Kartları */
-    .intel-card {
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 15px;
-        padding: 15px;
-        margin-bottom: 10px;
-    }
-    .intel-title { color: #58a6ff; font-weight: bold; margin-bottom: 5px; }
-
-    /* Gizlemeler */
     #MainMenu, footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. SOL MENÜ (HUB) ---
+# --- 4. SIDEBAR ---
 with st.sidebar:
-    st.markdown("<h2 style='text-align: center; color: #58a6ff;'>HUB</h2>", unsafe_allow_html=True)
-    tab_h, tab_s, tab_r = st.tabs(["📜", "⭐", "📚"])
-    
+    st.markdown("<h3 style='text-align: center; color: #58a6ff;'>CONTROL HUB</h3>", unsafe_allow_html=True)
+    tab_h, tab_s = st.tabs(["GEÇMİŞ", "KÜTÜPHANE"])
     with tab_h:
-        if st.session_state.history:
-            if st.button("🗑️ TEMİZLE", use_container_width=True):
-                st.session_state.history = []; st.rerun()
-            for h in reversed(st.session_state.history[-10:]):
-                if st.button(f"🔍 {h}", key=f"h_{h}", use_container_width=True):
-                    st.session_state.search_query = h; st.rerun()
-
+        for h in reversed(st.session_state.history[-8:]):
+            if st.button(f"🔍 {h}", key=f"hist_{h}", use_container_width=True):
+                st.session_state.search_query = h
+                st.rerun()
     with tab_s:
         for idx, item in enumerate(st.session_state.library):
-            if st.button(f"🔗 {item['title'][:20]}...", key=f"s_{idx}", use_container_width=True):
-                st.session_state.library.pop(idx); st.rerun()
-
-    with tab_r:
-        for idx, p in enumerate(st.session_state.reading_list):
-            if st.button(f"📖 {p['title'][:20]}...", key=f"r_{idx}", use_container_width=True):
-                st.session_state.reading_list.pop(idx); st.rerun()
+            st.markdown(f"<small>• {item['title'][:25]}</small>", unsafe_allow_html=True)
 
 # --- 5. ANA EKRAN ---
 st.markdown('<div class="hero-box"><div class="hero-title">Research Pilot</div><div class="hero-subtitle">The Intelligence Engine</div></div>', unsafe_allow_html=True)
 
-_, col_m, _ = st.columns([0.1, 0.8, 0.1])
+_, col_m, _ = st.columns([0.15, 0.7, 0.15])
 with col_m:
+    # Arama kutusu
     main_query = st.text_input("", value=st.session_state.search_query, placeholder="Search intelligence, videos, and code...", label_visibility="collapsed")
+    
+    # Trend Aramalar (Geri Getirildi)
+    st.markdown("<div style='text-align:center; margin-top:-10px; margin-bottom:20px;'>", unsafe_allow_html=True)
+    t_cols = st.columns([0.2, 0.15, 0.15, 0.15, 0.15, 0.2])
+    trends = ["AI Agents", "Next.js 15", "Quantum", "CyberSec"]
+    for i, t in enumerate(trends):
+        if t_cols[i+1].button(t, key=f"tr_{i}"):
+            st.session_state.search_query = t
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # --- 6. ARAMA MANTIĞI ---
+# Eğer arama çubuğuna bir şey yazıldıysa o geçerli olur
 active_search = main_query if main_query else st.session_state.search_query
 
 if active_search:
     if active_search not in st.session_state.history:
         st.session_state.history.append(active_search)
 
-    t_yt, t_gh, t_ar = st.tabs(["🎥 YOUTUBE", "🐙 CODE", "📄 ACADEMIC"])
+    t_yt, t_gh, t_ar = st.tabs(["🎥 YOUTUBE EXPLORER", "🐙 GITHUB REPOS", "📄 ACADEMIC"])
 
     with t_yt:
-        st.write(f"### Video Intelligence for: {active_search}")
-        v_cols = st.columns(2)
-        # YouTube simülasyonu (Gerçek linklerle)
-        for i in range(4):
-            with v_cols[i % 2]:
+        st.markdown(f"#### Video Analysis for: `{active_search}`")
+        v_cols = st.columns(3)
+        # Dinamik YouTube linkleri
+        yt_search_base = f"https://www.youtube.com/results?search_query={quote(active_search)}"
+        
+        for i in range(6): # 6 video kartı
+            with v_cols[i % 3]:
                 st.markdown(f"""
                 <div class="video-card">
-                    <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg" style="width:100%; border-radius:10px;">
-                    <div class="video-title">YouTube Briefing: {active_search} - Segment {i+1}</div>
+                    <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg" style="width:100%; border-radius:10px; filter: grayscale(30%);">
+                    <div class="video-title">Intelligence Report: {active_search} - Part {i+1}</div>
                 </div>
                 """, unsafe_allow_html=True)
-                st.link_button("WATCH ON YOUTUBE", f"https://www.youtube.com/results?search_query={quote(active_search)}")
+                # Buradaki link artık aktif arama terimini YouTube'a gönderiyor
+                st.link_button("WATCH NOW", f"{yt_search_base}", use_container_width=True)
 
     with t_gh:
         try:
             res = requests.get(f"https://api.github.com/search/repositories?q={quote(active_search)}&sort=stars").json()
             for item in res.get('items', [])[:5]:
-                st.markdown(f'<div class="intel-card"><div class="intel-title">{item["full_name"]}</div><p style="font-size:12px; color:#94a3b8;">{item["description"]}</p></div>', unsafe_allow_html=True)
-                st.link_button("VIEW REPO", item['html_url'])
-        except: st.error("GitHub connection lost.")
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.02); padding:15px; border-radius:10px; margin-bottom:10px; border-left: 2px solid #58a6ff;">
+                    <div style="color:#58a6ff; font-weight:bold;">{item['full_name']}</div>
+                    <div style="font-size:12px; color:#94a3b8;">{item['description'][:100] if item['description'] else 'No description'}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.link_button("OPEN CODE", item['html_url'])
+        except: st.error("API Limit reached.")
 
     with t_ar:
         try:
             ar_res = requests.get(f"http://export.arxiv.org/api/query?search_query=all:{quote(active_search)}&max_results=5").text
             root = ET.fromstring(ar_res)
             for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
-                t = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
-                st.markdown(f'<div class="intel-card"><div class="intel-title">{t}</div></div>', unsafe_allow_html=True)
-        except: st.error("ArXiv connection lost.")
+                title = entry.find('{http://www.w3.org/2005/Atom}title').text.strip()
+                link = entry.find('{http://www.w3.org/2005/Atom}id').text
+                st.markdown(f"<div style='margin-bottom:15px;'><b>• {title}</b></div>", unsafe_allow_html=True)
+                st.link_button("READ PAPER", link)
+        except: st.error("Database connection error.")
