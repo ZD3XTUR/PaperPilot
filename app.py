@@ -4,144 +4,205 @@ import xml.etree.ElementTree as ET
 from urllib.parse import quote
 
 # --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="Research-Pilot Ultra", page_icon="🛰️", layout="wide")
+st.set_page_config(page_title="Research-Pilot Pro", page_icon="🛰️", layout="wide")
 
-# --- 2. SESSION STATE INITIALIZATION ---
-# Bu kısım hatayı önlemek için kritik:
+# --- 2. SESSION STATE ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'library' not in st.session_state: st.session_state.library = []
 if 'reading_list' not in st.session_state: st.session_state.reading_list = []
-# Widget'ın değerini tutacak ana state
-if 'search_query' not in st.session_state:
-    st.session_state.search_query = ""
+if 'search_query' not in st.session_state: st.session_state.search_query = ""
 
-# --- 3. UI STYLING ---
+# --- 3. ZEN & FUTURISTIC UI STYLING ---
 st.markdown("""
     <style>
-    .stApp { background: linear-gradient(135deg, #0f172a 0%, #020617 100%); color: #e2e8f0; }
-    .hero-container {
-        padding: 40px; text-align: center; background: rgba(30, 41, 59, 0.4);
-        border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 30px;
+    /* Global Background & Font */
+    .stApp { 
+        background: #05070a; 
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Minimalist Hero Section */
+    .hero-box {
+        padding: 60px 0 20px 0;
+        text-align: center;
     }
     .hero-title {
-        font-size: 3rem; font-weight: 800;
-        background: linear-gradient(to right, #38bdf8, #818cf8);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        font-size: 3.5rem;
+        font-weight: 200;
+        letter-spacing: -1px;
+        color: #ffffff;
+        margin-bottom: 0px;
     }
-    .stat-card {
-        background: rgba(15, 23, 42, 0.8); border-left: 3px solid #38bdf8;
-        padding: 15px; border-radius: 10px; text-align: center;
+    .hero-subtitle {
+        color: #4b5563;
+        font-size: 1rem;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 40px;
     }
-    .res-card {
-        background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(12px);
-        padding: 20px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 15px;
+
+    /* Clean Search Input */
+    .stTextInput input {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 50px !important;
+        padding: 25px 30px !important;
+        color: white !important;
+        font-size: 1.2rem !important;
+        transition: 0.4s;
     }
-    .stTabs [data-baseweb="tab-list"] { gap: 20px; justify-content: center; }
-    .stTabs [data-baseweb="tab"] { font-size: 22px !important; }
+    .stTextInput input:focus {
+        border-color: #58a6ff !important;
+        box-shadow: 0 0 20px rgba(88, 166, 255, 0.15) !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Result Cards (Minimalist) */
+    .intel-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 20px;
+        padding: 25px;
+        margin-bottom: 20px;
+        transition: 0.3s;
+    }
+    .intel-card:hover {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(88, 166, 255, 0.3);
+    }
+    .intel-title {
+        font-size: 1.25rem;
+        font-weight: 500;
+        color: #58a6ff;
+        margin-bottom: 10px;
+    }
+
+    /* Quick Stats Labels */
+    .stat-pill {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 100px;
+        background: rgba(88, 166, 255, 0.1);
+        color: #58a6ff;
+        font-size: 11px;
+        font-weight: bold;
+        margin-right: 8px;
+    }
+
+    /* Hide default streamlit clutter */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. SIDEBAR LOGIC ---
+# --- 4. SIDEBAR (STAYS THE SAME AS REQUESTED) ---
 with st.sidebar:
-    st.markdown("<h2 style='text-align: center; color: #38bdf8;'>HUB</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #58a6ff;'>HUB</h2>", unsafe_allow_html=True)
     tabs = st.tabs(["📜", "⭐", "📚"])
-    
-    with tabs[0]: # HISTORY
+    with tabs[0]:
         if st.session_state.history:
             if st.button("🗑️ PURGE", use_container_width=True):
                 st.session_state.history = []
                 st.rerun()
             for h in reversed(st.session_state.history[-10:]):
-                # HATA ÇÖZÜMÜ: Callback yerine state'i doğrudan güncelleyip rerun yapıyoruz
                 if st.button(f"🔍 {h}", key=f"hist_{h}", use_container_width=True):
                     st.session_state.search_query = h
                     st.rerun()
-
-    with tabs[1]: # LIBRARY
+    with tabs[1]:
         for idx, item in enumerate(st.session_state.library):
             c_txt, c_rm = st.columns([0.8, 0.2])
             c_txt.markdown(f"**[{item['title'][:30]}...]({item['link']})**")
             if c_rm.button("✖️", key=f"lib_rm_{idx}"):
                 st.session_state.library.pop(idx); st.rerun()
-
-    with tabs[2]: # READING
+    with tabs[2]:
         for idx, p in enumerate(st.session_state.reading_list):
             if st.button(f"✔️ {p['title'][:35]}...", key=f"rd_fin_{idx}", use_container_width=True):
                 st.session_state.reading_list.pop(idx); st.rerun()
 
-# --- 5. MAIN CONTENT ---
-st.markdown('<div class="hero-container"><div class="hero-title">RESEARCH PILOT</div><p style="color: #94a3b8;">Unified Intelligence Engine</p></div>', unsafe_allow_html=True)
+# --- 5. ZEN MAIN SCREEN ---
+st.markdown("""
+    <div class="hero-box">
+        <div class="hero-title">Research Pilot</div>
+        <div class="hero-subtitle">The Intelligence Layer</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# STATS
-s1, s2, s3, s4 = st.columns(4)
-s1.markdown(f'<div class="stat-card"><small>HISTORY</small><h4>{len(st.session_state.history)}</h4></div>', unsafe_allow_html=True)
-s2.markdown(f'<div class="stat-card"><small>LIBRARY</small><h4>{len(st.session_state.library)}</h4></div>', unsafe_allow_html=True)
-s3.markdown(f'<div class="stat-card"><small>QUEUED</small><h4>{len(st.session_state.reading_list)}</h4></div>', unsafe_allow_html=True)
-s4.markdown(f'<div class="stat-card"><small>STATUS</small><h4 style="color:#3fb950;">ONLINE</h4></div>', unsafe_allow_html=True)
+# Central Search Container
+c_left, c_mid, c_right = st.columns([0.15, 0.7, 0.15])
+with c_mid:
+    main_query = st.text_input(
+        "", 
+        value=st.session_state.search_query,
+        placeholder="Search repositories, archives, or web nodes...",
+        label_visibility="collapsed"
+    )
 
-st.divider()
-
-# SEARCH INPUT - value=st.session_state.search_query kullanımı hatayı çözer
-main_query = st.text_input(
-    "GLOBAL SEARCH", 
-    value=st.session_state.search_query,
-    placeholder="Enter keywords...",
-    key="main_search_input"
-)
-
-# TRENDING CHIPS
-st.markdown("<small style='color:#64748b;'>TRENDING:</small>", unsafe_allow_html=True)
-t_cols = st.columns(5)
-trends = ["Quantum AI", "Rust Frameworks", "Cyber Security", "Neural Networks", "DeFi"]
+# Quick Access / Suggestions (More elegant)
+st.markdown("<div style='text-align:center; margin-top:10px;'>", unsafe_allow_html=True)
+s_cols = st.columns([0.3, 0.1, 0.1, 0.1, 0.1, 0.3])
+trends = ["LLMs", "BioTech", "SpaceX", "Solana"]
 for i, t in enumerate(trends):
-    if t_cols[i].button(t, key=f"trend_{i}"):
+    if s_cols[i+1].button(t, key=f"t_{i}"):
         st.session_state.search_query = t
         st.rerun()
+st.markdown("</div>", unsafe_allow_html=True)
 
 # --- 6. SEARCH LOGIC ---
-# Arama yaparken session state'deki değeri kullanıyoruz
 active_search = main_query if main_query else st.session_state.search_query
 
 if active_search:
     if active_search not in st.session_state.history:
         st.session_state.history.append(active_search)
 
-    with st.spinner('🔭 Scanning...'):
-        tab_web, tab_gh, tab_ar = st.tabs(["🌐 WEB", "🐙 GITHUB", "📄 ARXIV"])
+    st.markdown(f"<p style='text-align:center; color:#4b5563; margin-top:30px;'>Displaying results for: <b>{active_search}</b></p>", unsafe_allow_html=True)
+    
+    # Modern Tabs
+    t_web, t_gh, t_ar = st.tabs(["WEB", "CODE", "ACADEMIC"])
 
-        # GITHUB
-        with tab_gh:
-            try:
-                res = requests.get(f"https://api.github.com/search/repositories?q={quote(active_search)}&sort=stars").json()
-                for item in res.get('items', [])[:5]:
-                    st.markdown(f'<div class="res-card"><b style="color:#38bdf8;">{item["full_name"]}</b><br><small>{item["description"]}</small></div>', unsafe_allow_html=True)
-                    btn_c1, btn_c2, btn_c3, _ = st.columns([0.15, 0.1, 0.1, 0.65])
-                    with btn_c1: st.link_button("VIEW", item['html_url'])
-                    with btn_c2: 
-                        if st.button("📚", key=f"r_gh_{item['id']}"):
-                            st.session_state.reading_list.append({"title": item['full_name'], "link": item['html_url']})
-                    with btn_c3:
-                        if st.button("⭐", key=f"s_gh_{item['id']}"):
-                            st.session_state.library.append({"title": item['full_name'], "link": item['html_url']})
-            except: st.error("GitHub link error.")
+    with t_gh:
+        try:
+            res = requests.get(f"https://api.github.com/search/repositories?q={quote(active_search)}&sort=stars").json()
+            for item in res.get('items', [])[:5]:
+                st.markdown(f"""
+                    <div class="intel-card">
+                        <div class="intel-title">{item['full_name']}</div>
+                        <p style="color:#94a3b8; font-size:14px;">{item['description'] or 'No description logs.'}</p>
+                        <span class="stat-pill">⭐ {item['stargazers_count']}</span>
+                        <span class="stat-pill">🛠️ {item['language']}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                # Icons Only Row
+                i1, i2, i3, _ = st.columns([0.05, 0.05, 0.05, 0.85])
+                with i1: st.link_button("👁️", item['html_url'])
+                with i2: 
+                    if st.button("📚", key=f"r_gh_{item['id']}"):
+                        st.session_state.reading_list.append({"title": item['full_name'], "link": item['html_url']})
+                with i3:
+                    if st.button("⭐", key=f"s_gh_{item['id']}"):
+                        st.session_state.library.append({"title": item['full_name'], "link": item['html_url']})
+        except: st.error("Link unstable.")
 
-        # ARXIV
-        with tab_ar:
-            try:
-                ar_res = requests.get(f"http://export.arxiv.org/api/query?search_query=all:{quote(active_search)}&max_results=5").text
-                root = ET.fromstring(ar_res)
-                for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
-                    t = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
-                    l = entry.find('{http://www.w3.org/2005/Atom}id').text
-                    st.markdown(f'<div class="res-card"><b style="color:#38bdf8;">{t}</b></div>', unsafe_allow_html=True)
-                    bc1, bc2, bc3, _ = st.columns([0.15, 0.1, 0.1, 0.65])
-                    with bc1: st.link_button("READ", l)
-                    with bc2:
-                        if st.button("📚", key=f"r_ar_{l}"):
-                            st.session_state.reading_list.append({"title": t, "link": l})
-                    with bc3:
-                        if st.button("⭐", key=f"s_ar_{l}"):
-                            st.session_state.library.append({"title": t, "link": l})
-            except: st.error("Database error.")
+    with t_ar:
+        try:
+            ar_res = requests.get(f"http://export.arxiv.org/api/query?search_query=all:{quote(active_search)}&max_results=5").text
+            root = ET.fromstring(ar_res)
+            for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
+                t = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
+                l = entry.find('{http://www.w3.org/2005/Atom}id').text
+                st.markdown(f"""
+                    <div class="intel-card">
+                        <div class="intel-title">{t}</div>
+                        <span class="stat-pill">PDF AVAILABLE</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                i1, i2, i3, _ = st.columns([0.05, 0.05, 0.05, 0.85])
+                with i1: st.link_button("👁️", l)
+                with i2:
+                    if st.button("📚", key=f"r_ar_{l}"):
+                        st.session_state.reading_list.append({"title": t, "link": l})
+                with i3:
+                    if st.button("⭐", key=f"s_ar_{l}"):
+                        st.session_state.library.append({"title": t, "link": l})
+        except: st.error("Archive unreachable.")
 
-    st.balloons()
+    st.success(f"Analysis complete for {active_search}.")
