@@ -11,9 +11,13 @@ st.set_page_config(page_title="Research-Pilot Pro", page_icon="🛰️", layout=
 if 'history' not in st.session_state: st.session_state.history = []
 if 'library' not in st.session_state: st.session_state.library = []
 if 'reading_list' not in st.session_state: st.session_state.reading_list = []
-if 'active_query' not in st.session_state: st.session_state.active_query = ""
 
-# --- 3. DARK MODE & UI STYLING ---
+# --- CALLBACK: The Secret Sauce ---
+def trigger_history_search(query_from_button):
+    # This force-updates the widget's internal state
+    st.session_state["search_bar_widget"] = query_from_button
+
+# --- 3. UI STYLING ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #fafafa; }
@@ -25,14 +29,14 @@ st.markdown("""
         margin-bottom: 10px;
     }
     .res-title { color: #58a6ff; font-weight: 600; font-size: 16px; margin-bottom: 5px; }
-    .res-desc { color: #c9d1d9; font-size: 14px; margin-bottom: 10px; }
+    /* Sidebar History Buttons */
     div.stButton > button {
         background-color: #21262d;
         border: 1px solid #30363d;
         color: white;
-        padding: 5px 10px;
-        width: 100%;
         text-align: left;
+        width: 100%;
+        font-size: 13px;
     }
     div.stButton > button:hover { border-color: #58a6ff; }
     </style>
@@ -41,86 +45,60 @@ st.markdown("""
 # --- 4. SIDEBAR (RESEARCH HUB) ---
 with st.sidebar:
     st.title("🛰️ Research Hub")
-    hub_tabs = st.tabs(["📜 History", "⭐ Starred", "📚 Reading"])
+    tabs = st.tabs(["📜 History", "⭐ Starred", "📚 Reading"])
     
-    with hub_tabs[0]:
+    with tabs[0]:
         if not st.session_state.history:
-            st.caption("No history.")
+            st.caption("History is empty.")
         for h in reversed(st.session_state.history[-15:]):
-            if st.button(f"🔍 {h}", key=f"hbtn_{h}"):
-                st.session_state.active_query = h
-                st.rerun()
-    
-    with hub_tabs[1]:
-        for item in st.session_state.library:
-            st.markdown(f'<div style="font-size:12px; margin-bottom:8px;">⭐ {item["title"][:40]}...<br><a href="{item["link"]}" target="_blank">Open ↗</a></div>', unsafe_allow_html=True)
+            # ON_CLICK is the only way to guarantee the text box updates instantly
+            st.button(f"🔍 {h}", key=f"btn_{h}", on_click=trigger_history_search, args=(h,))
 
-    with hub_tabs[2]:
+    with tabs[1]:
+        for item in st.session_state.library:
+            st.markdown(f'<div style="font-size:12px; margin-bottom:5px;">⭐ {item["title"][:40]}...</div>', unsafe_allow_html=True)
+
+    with tabs[2]:
         for idx, paper in enumerate(st.session_state.reading_list):
             st.caption(f"📚 {paper['title'][:40]}...")
-            if st.button("✅ Mark as Read", key=f"read_fin_{idx}"):
+            if st.button("✅ Done", key=f"rd_{idx}"):
                 st.session_state.reading_list.pop(idx)
                 st.rerun()
 
 # --- 5. MAIN INTERFACE ---
 st.title("🛰️ Research-Pilot Pro")
 
+# The 'key' here connects directly to the trigger_history_search function
 query = st.text_input(
     "Global Search", 
-    value=st.session_state.active_query, 
     placeholder="Type and press Enter...",
-    key="search_bar_widget"
+    key="search_bar_widget" 
 )
-
-# Sync input with state
-if query != st.session_state.active_query:
-    st.session_state.active_query = query
-    st.rerun()
 
 depth = st.select_slider("Scan Depth", options=[3, 5, 10, 15], value=5)
 
-# --- 6. SEARCH ENGINE (ALL TABS) ---
-if st.session_state.active_query:
-    search_term = st.session_state.active_query
-    if search_term not in st.session_state.history:
-        st.session_state.history.append(search_term)
+# --- 6. SEARCH ENGINE ---
+if query:
+    if query not in st.session_state.history:
+        st.session_state.history.append(query)
 
-    with st.spinner(f'Searching for "{search_term}"...'):
-        tab_web, tab_gh, tab_ar = st.tabs(["🌐 Web Index", "🐙 GitHub Code", "📄 Academic (ArXiv)"])
+    with st.spinner(f'Analyzing "{query}"...'):
+        t_web, t_gh, t_ar = st.tabs(["🌐 Web Index", "🐙 GitHub Code", "📄 Academic (ArXiv)"])
 
-        # --- WEB INDEX TAB ---
-        with tab_web:
-            # Note: For real Google results, you'd usually use Google Custom Search API.
-            # Here we provide the Direct Intel Hub.
-            st.info("Direct External Intelligence Hub:")
-            google_search_url = f"https://www.google.com/search?q={quote(search_term)}"
-            bing_search_url = f"https://www.bing.com/search?q={quote(search_term)}"
-            
-            st.markdown(f"""
-                <div class="res-card">
-                    <div class="res-title">Launch Live Web Scan</div>
-                    <div class="res-desc">Scans global web indices for real-time news and articles related to "{search_term}".</div>
-                    <a href="{google_search_url}" target="_blank" style="color:#58a6ff; margin-right:20px;">Open on Google ↗</a>
-                    <a href="{bing_search_url}" target="_blank" style="color:#58a6ff;">Open on Bing ↗</a>
-                </div>
-            """, unsafe_allow_html=True)
+        # WEB TAB
+        with t_web:
+            st.info("Direct Web Scanning enabled.")
+            url = f"https://www.google.com/search?q={quote(query)}"
+            st.markdown(f'<div class="res-card"><div class="res-title">Web Results for: {query}</div><a href="{url}" target="_blank" style="color:#58a6ff;">Launch Live Scan ↗</a></div>', unsafe_allow_html=True)
 
-        # --- GITHUB TAB (REAL API SEARCH) ---
-        with tab_gh:
-            gh_api_url = f"https://api.github.com/search/repositories?q={quote(search_term)}&sort=stars"
+        # GITHUB TAB
+        with t_gh:
             try:
-                gh_res = requests.get(gh_api_url, timeout=10).json()
+                gh_res = requests.get(f"https://api.github.com/search/repositories?q={quote(query)}&sort=stars", timeout=10).json()
                 for item in gh_res.get('items', [])[:depth]:
-                    st.markdown(f"""
-                        <div class="res-card">
-                            <div class="res-title">{item['full_name']}</div>
-                            <div class="res-desc">{item['description'] or 'No description provided.'}</div>
-                            <span style="color:#3fb950; font-size:12px;">⭐ {item['stargazers_count']:,} | 🛠️ {item['language']}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
+                    st.markdown(f'<div class="res-card"><div class="res-title">{item["full_name"]}</div><div style="font-size:13px; color:#8b949e;">{item["description"] or "No logs."}</div></div>', unsafe_allow_html=True)
                     c1, c2, c3, _ = st.columns([0.1, 0.1, 0.1, 0.7])
-                    with c1: st.link_button("👁️", item['html_url'], help="View Code")
+                    with c1: st.link_button("👁️", item['html_url'])
                     with c2: 
                         if st.button("📚", key=f"r_gh_{item['id']}"):
                             st.session_state.reading_list.append({"title": item['full_name'], "link": item['html_url']})
@@ -129,20 +107,17 @@ if st.session_state.active_query:
                         if st.button("⭐", key=f"s_gh_{item['id']}"):
                             st.session_state.library.append({"title": item['full_name'], "link": item['html_url']})
                             st.toast("Starred")
-            except: st.error("GitHub API is currently unreachable.")
+            except: st.error("GitHub API offline.")
 
-        # --- ACADEMIC TAB (REAL API SEARCH) ---
-        with tab_ar:
-            ar_api_url = f"http://export.arxiv.org/api/query?search_query=all:{quote(search_term)}&max_results={depth}"
+        # ARXIV TAB
+        with t_ar:
             try:
-                ar_res = requests.get(ar_api_url, timeout=10).text
+                ar_res = requests.get(f"http://export.arxiv.org/api/query?search_query=all:{quote(query)}&max_results={depth}", timeout=10).text
                 root = ET.fromstring(ar_res)
                 for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
                     title = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
                     link = entry.find('{http://www.w3.org/2005/Atom}id').text
-                    
                     st.markdown(f'<div class="res-card"><div class="res-title">{title}</div></div>', unsafe_allow_html=True)
-                    
                     c1, c2, c3, _ = st.columns([0.1, 0.1, 0.1, 0.7])
                     with c1: st.link_button("👁️", link)
                     with c2:
@@ -153,6 +128,6 @@ if st.session_state.active_query:
                         if st.button("⭐", key=f"s_ar_{link}"):
                             st.session_state.library.append({"title": title, "link": link})
                             st.toast("Starred")
-            except: st.error("Academic database connection error.")
+            except: st.error("Academic database error.")
 
     st.balloons()
