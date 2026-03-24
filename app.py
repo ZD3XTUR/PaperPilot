@@ -2,86 +2,48 @@ import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
 from urllib.parse import quote
-import random
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(page_title="Research-Pilot Ultra", page_icon="🛰️", layout="wide")
 
-# --- 2. SESSION STATE ---
+# --- 2. SESSION STATE INITIALIZATION ---
+# Bu kısım hatayı önlemek için kritik:
 if 'history' not in st.session_state: st.session_state.history = []
 if 'library' not in st.session_state: st.session_state.library = []
 if 'reading_list' not in st.session_state: st.session_state.reading_list = []
+# Widget'ın değerini tutacak ana state
+if 'search_query' not in st.session_state:
+    st.session_state.search_query = ""
 
-def trigger_history_search(query_text):
-    st.session_state["search_bar_widget"] = query_text
-
-# --- 3. CYBER-TECH UI STYLING ---
+# --- 3. UI STYLING ---
 st.markdown("""
     <style>
-    /* Global Styles */
-    .stApp { 
-        background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
-        color: #e2e8f0;
-    }
-    
-    /* Hero Header */
+    .stApp { background: linear-gradient(135deg, #0f172a 0%, #020617 100%); color: #e2e8f0; }
     .hero-container {
-        padding: 40px;
-        text-align: center;
-        background: rgba(30, 41, 59, 0.4);
-        border-radius: 20px;
-        border: 1px solid rgba(56, 189, 248, 0.2);
-        margin-bottom: 30px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        padding: 40px; text-align: center; background: rgba(30, 41, 59, 0.4);
+        border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 30px;
     }
     .hero-title {
-        font-size: 3rem;
-        font-weight: 800;
+        font-size: 3rem; font-weight: 800;
         background: linear-gradient(to right, #38bdf8, #818cf8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 10px;
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-
-    /* Metric Cards */
     .stat-card {
-        background: rgba(15, 23, 42, 0.8);
-        border-left: 3px solid #38bdf8;
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-        transition: 0.3s;
+        background: rgba(15, 23, 42, 0.8); border-left: 3px solid #38bdf8;
+        padding: 15px; border-radius: 10px; text-align: center;
     }
-    .stat-card:hover { transform: scale(1.05); border-left-color: #818cf8; }
-    
-    /* Result Cards */
     .res-card {
-        background: rgba(30, 41, 59, 0.5);
-        backdrop-filter: blur(12px);
-        padding: 20px;
-        border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        margin-bottom: 15px;
-        transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(12px);
+        padding: 20px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 15px;
     }
-    .res-card:hover {
-        background: rgba(30, 41, 59, 0.8);
-        border-color: #38bdf8;
-        box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
-    }
-
-    /* Sidebar Enhancement */
-    [data-testid="stSidebar"] {
-        background-color: #020617;
-        border-right: 1px solid rgba(56, 189, 248, 0.1);
-    }
+    .stTabs [data-baseweb="tab-list"] { gap: 20px; justify-content: center; }
+    .stTabs [data-baseweb="tab"] { font-size: 22px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. SIDEBAR (MINIMALIST HUB) ---
+# --- 4. SIDEBAR LOGIC ---
 with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #38bdf8;'>HUB</h2>", unsafe_allow_html=True)
-    
     tabs = st.tabs(["📜", "⭐", "📚"])
     
     with tabs[0]: # HISTORY
@@ -90,102 +52,96 @@ with st.sidebar:
                 st.session_state.history = []
                 st.rerun()
             for h in reversed(st.session_state.history[-10:]):
-                st.button(f"🔍 {h}", key=f"hist_{h}", on_click=trigger_history_search, args=(h,))
-    
+                # HATA ÇÖZÜMÜ: Callback yerine state'i doğrudan güncelleyip rerun yapıyoruz
+                if st.button(f"🔍 {h}", key=f"hist_{h}", use_container_width=True):
+                    st.session_state.search_query = h
+                    st.rerun()
+
     with tabs[1]: # LIBRARY
         for idx, item in enumerate(st.session_state.library):
-            col_t, col_r = st.columns([0.8, 0.2])
-            with col_t: st.markdown(f"**[{item['title'][:30]}...]({item['link']})**")
-            with col_r: 
-                if st.button("✖️", key=f"rl_{idx}"):
-                    st.session_state.library.pop(idx); st.rerun()
+            c_txt, c_rm = st.columns([0.8, 0.2])
+            c_txt.markdown(f"**[{item['title'][:30]}...]({item['link']})**")
+            if c_rm.button("✖️", key=f"lib_rm_{idx}"):
+                st.session_state.library.pop(idx); st.rerun()
 
     with tabs[2]: # READING
         for idx, p in enumerate(st.session_state.reading_list):
-            if st.button(f"✔️ {p['title'][:35]}...", key=f"rd_{idx}", use_container_width=True):
+            if st.button(f"✔️ {p['title'][:35]}...", key=f"rd_fin_{idx}", use_container_width=True):
                 st.session_state.reading_list.pop(idx); st.rerun()
 
 # --- 5. MAIN CONTENT ---
+st.markdown('<div class="hero-container"><div class="hero-title">RESEARCH PILOT</div><p style="color: #94a3b8;">Unified Intelligence Engine</p></div>', unsafe_allow_html=True)
 
-# HERO SECTION (Always visible)
-st.markdown("""
-    <div class="hero-container">
-        <div class="hero-title">RESEARCH PILOT</div>
-        <p style="color: #94a3b8; font-size: 1.1rem;">Decentralized Intelligence Engine & Academic Archive</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-# LIVE STATS (Keeps the page from looking empty)
-c1, c2, c3, c4 = st.columns(4)
-c1.markdown(f'<div class="stat-card"><small>HISTORY</small><h4>{len(st.session_state.history)}</h4></div>', unsafe_allow_html=True)
-c2.markdown(f'<div class="stat-card"><small>LIBRARY</small><h4>{len(st.session_state.library)}</h4></div>', unsafe_allow_html=True)
-c3.markdown(f'<div class="stat-card"><small>QUEUED</small><h4>{len(st.session_state.reading_list)}</h4></div>', unsafe_allow_html=True)
-c4.markdown(f'<div class="stat-card"><small>STATUS</small><h4 style="color:#3fb950;">ONLINE</h4></div>', unsafe_allow_html=True)
+# STATS
+s1, s2, s3, s4 = st.columns(4)
+s1.markdown(f'<div class="stat-card"><small>HISTORY</small><h4>{len(st.session_state.history)}</h4></div>', unsafe_allow_html=True)
+s2.markdown(f'<div class="stat-card"><small>LIBRARY</small><h4>{len(st.session_state.library)}</h4></div>', unsafe_allow_html=True)
+s3.markdown(f'<div class="stat-card"><small>QUEUED</small><h4>{len(st.session_state.reading_list)}</h4></div>', unsafe_allow_html=True)
+s4.markdown(f'<div class="stat-card"><small>STATUS</small><h4 style="color:#3fb950;">ONLINE</h4></div>', unsafe_allow_html=True)
 
 st.divider()
 
-# SEARCH AREA
-query = st.text_input("", placeholder="🔍 Search global repositories, papers, or web indices...", key="search_bar_widget")
+# SEARCH INPUT - value=st.session_state.search_query kullanımı hatayı çözer
+main_query = st.text_input(
+    "GLOBAL SEARCH", 
+    value=st.session_state.search_query,
+    placeholder="Enter keywords...",
+    key="main_search_input"
+)
 
-# SUGGESTION CHIPS (Creative touch)
+# TRENDING CHIPS
 st.markdown("<small style='color:#64748b;'>TRENDING:</small>", unsafe_allow_html=True)
-cols = st.columns(5)
-suggestions = ["Quantum AI", "Rust Web Frameworks", "Neural Radiance Fields", "DeFi Security", "LLM Fine-tuning"]
-for i, s in enumerate(suggestions):
-    if cols[i].button(s, key=f"sug_{i}"):
-        st.session_state.active_query = s
-        st.session_state["search_bar_widget"] = s
+t_cols = st.columns(5)
+trends = ["Quantum AI", "Rust Frameworks", "Cyber Security", "Neural Networks", "DeFi"]
+for i, t in enumerate(trends):
+    if t_cols[i].button(t, key=f"trend_{i}"):
+        st.session_state.search_query = t
         st.rerun()
 
 # --- 6. SEARCH LOGIC ---
-if query:
-    if query not in st.session_state.history:
-        st.session_state.history.append(query)
+# Arama yaparken session state'deki değeri kullanıyoruz
+active_search = main_query if main_query else st.session_state.search_query
 
-    with st.spinner('📡 Intercepting Data...'):
-        t_web, t_gh, t_ar = st.tabs(["🌐 WEB INDEX", "🐙 GITHUB", "📄 ARXIV"])
+if active_search:
+    if active_search not in st.session_state.history:
+        st.session_state.history.append(active_search)
 
-        # GITHUB LOGIC (Simplified for clarity)
-        with t_gh:
+    with st.spinner('🔭 Scanning...'):
+        tab_web, tab_gh, tab_ar = st.tabs(["🌐 WEB", "🐙 GITHUB", "📄 ARXIV"])
+
+        # GITHUB
+        with tab_gh:
             try:
-                res = requests.get(f"https://api.github.com/search/repositories?q={quote(query)}&sort=stars").json()
+                res = requests.get(f"https://api.github.com/search/repositories?q={quote(active_search)}&sort=stars").json()
                 for item in res.get('items', [])[:5]:
-                    st.markdown(f"""
-                        <div class="res-card">
-                            <div style="display:flex; justify-content:space-between;">
-                                <span style="color:#38bdf8; font-weight:bold; font-size:18px;">{item['full_name']}</span>
-                                <span style="color:#3fb950;">⭐ {item['stargazers_count']}</span>
-                            </div>
-                            <p style="color:#94a3b8; font-size:14px; margin-top:10px;">{item['description'] or 'No description.'}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f'<div class="res-card"><b style="color:#38bdf8;">{item["full_name"]}</b><br><small>{item["description"]}</small></div>', unsafe_allow_html=True)
                     btn_c1, btn_c2, btn_c3, _ = st.columns([0.15, 0.1, 0.1, 0.65])
-                    with btn_c1: st.link_button("VIEW ↗", item['html_url'])
+                    with btn_c1: st.link_button("VIEW", item['html_url'])
                     with btn_c2: 
-                        if st.button("📚", key=f"r_g_{item['id']}"):
+                        if st.button("📚", key=f"r_gh_{item['id']}"):
                             st.session_state.reading_list.append({"title": item['full_name'], "link": item['html_url']})
                     with btn_c3:
-                        if st.button("⭐", key=f"s_g_{item['id']}"):
+                        if st.button("⭐", key=f"s_gh_{item['id']}"):
                             st.session_state.library.append({"title": item['full_name'], "link": item['html_url']})
-            except: st.error("Link Lost.")
+            except: st.error("GitHub link error.")
 
-        # ARXIV LOGIC
-        with t_ar:
+        # ARXIV
+        with tab_ar:
             try:
-                ar_res = requests.get(f"http://export.arxiv.org/api/query?search_query=all:{quote(query)}&max_results=5").text
+                ar_res = requests.get(f"http://export.arxiv.org/api/query?search_query=all:{quote(active_search)}&max_results=5").text
                 root = ET.fromstring(ar_res)
                 for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
                     t = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
                     l = entry.find('{http://www.w3.org/2005/Atom}id').text
-                    st.markdown(f'<div class="res-card"><div style="color:#38bdf8; font-weight:bold;">{t}</div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="res-card"><b style="color:#38bdf8;">{t}</b></div>', unsafe_allow_html=True)
                     bc1, bc2, bc3, _ = st.columns([0.15, 0.1, 0.1, 0.65])
-                    with bc1: st.link_button("READ ↗", l)
+                    with bc1: st.link_button("READ", l)
                     with bc2:
-                        if st.button("📚", key=f"r_a_{l}"):
+                        if st.button("📚", key=f"r_ar_{l}"):
                             st.session_state.reading_list.append({"title": t, "link": l})
                     with bc3:
-                        if st.button("⭐", key=f"s_a_{l}"):
+                        if st.button("⭐", key=f"s_ar_{l}"):
                             st.session_state.library.append({"title": t, "link": l})
-            except: st.error("Database Error.")
+            except: st.error("Database error.")
 
     st.balloons()
