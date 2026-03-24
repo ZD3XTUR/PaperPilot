@@ -12,6 +12,11 @@ if 'history' not in st.session_state: st.session_state.history = []
 if 'library' not in st.session_state: st.session_state.library = []
 if 'reading_list' not in st.session_state: st.session_state.reading_list = []
 
+# --- CALLBACK FUNCTION ---
+# This function runs BEFORE the rest of the app when a history button is clicked
+def load_search(query_text):
+    st.session_state["search_input_main"] = query_text
+
 # --- 3. DARK MODE & UI STYLING ---
 st.markdown("""
     <style>
@@ -32,6 +37,9 @@ st.markdown("""
         width: 100%;
         text-align: left;
     }
+    div.stButton > button:hover {
+        border-color: #58a6ff;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -45,37 +53,35 @@ with st.sidebar:
         if not st.session_state.history:
             st.caption("No history available.")
         for h in reversed(st.session_state.history[-15:]):
-            # FIXED: Manually updating the widget's state via its KEY
-            if st.button(f"🔍 {h}", key=f"hbtn_{h}"):
-                st.session_state["search_input_main"] = h # Force the text input to show this
-                st.rerun()
+            # FIXED: Using on_click callback to update state safely
+            st.button(f"🔍 {h}", key=f"hbtn_{h}", on_click=load_search, args=(h,))
 
     with hub_tabs[1]: # STARRED
         for item in st.session_state.library:
-            st.caption(f"⭐ {item['title'][:40]}...")
-            st.write(f"[Open ↗]({item['link']})")
+            st.markdown(f'<div style="font-size:12px; margin-bottom:5px;">⭐ {item["title"][:40]}... <br> <a href="{item["link"]}" target="_blank">Open ↗</a></div>', unsafe_allow_html=True)
 
     with hub_tabs[2]: # READING LIST
         for idx, paper in enumerate(st.session_state.reading_list):
             st.caption(f"📚 {paper['title'][:40]}...")
-            if st.button("✅ Mark as Read", key=f"read_fin_{idx}"):
+            if st.button("✅ Done", key=f"read_fin_{idx}"):
                 st.session_state.reading_list.pop(idx)
                 st.rerun()
 
 # --- 5. MAIN INTERFACE ---
 st.title("🛰️ Research-Pilot Pro")
 
-# FIXED: We use 'key' to sync the input box with session_state directly
+# SOURCE OF TRUTH: The search input uses the 'search_input_main' key
 query = st.text_input(
     "Global Search", 
     placeholder="Enter keywords...",
-    key="search_input_main" # This key is now the source of truth
+    key="search_input_main" 
 )
 
 depth = st.select_slider("Scan Depth", options=[3, 5, 10, 15], value=5)
 
 # --- 6. SEARCH LOGIC ---
 if query:
+    # Add to history if not duplicate
     if query not in st.session_state.history:
         st.session_state.history.append(query)
 
@@ -86,23 +92,25 @@ if query:
         with t3:
             ar_url = f"http://export.arxiv.org/api/query?search_query=all:{quote(query)}&max_results={depth}"
             try:
-                root = ET.fromstring(requests.get(ar_url, timeout=10).text)
+                response = requests.get(ar_url, timeout=10).text
+                root = ET.fromstring(response)
                 for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
                     t = entry.find('{http://www.w3.org/2005/Atom}title').text.strip().replace('\n', '')
                     l = entry.find('{http://www.w3.org/2005/Atom}id').text
                     
                     st.markdown(f'<div class="res-card"><div class="res-title">{t[:110]}...</div></div>', unsafe_allow_html=True)
                     
+                    # 👁️ Read | 📚 Reading List | ⭐ Star
                     c1, c2, c3, c_sp = st.columns([0.1, 0.1, 0.1, 0.7])
-                    with c1: st.link_button("👁️", l, help="Read Paper")
+                    with c1: st.link_button("👁️", l, help="Open Paper")
                     with c2:
                         if st.button("📚", key=f"r_ar_{l}", help="Reading List"):
                             st.session_state.reading_list.append({"title": t, "link": l})
-                            st.toast("Added to Reading List")
+                            st.toast("Saved to Reading List")
                     with c3:
                         if st.button("⭐", key=f"s_ar_{l}", help="Star"):
                             st.session_state.library.append({"title": t, "link": l})
                             st.toast("Starred")
-            except: st.error("Database error.")
+            except: st.error("Search failed. Check your connection.")
 
     st.balloons()
