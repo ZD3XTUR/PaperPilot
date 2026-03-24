@@ -7,6 +7,20 @@ from urllib.parse import quote
 st.set_page_config(page_title="Research-Pilot", page_icon="🚀", layout="wide")
 
 # --- UI HEADER ---
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f5f7f9;
+    }
+    .stButton>button {
+        width: 100%;
+        border-radius: 5px;
+        height: 3em;
+        background-color: #007bff;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 st.title("🚀 Research-Pilot: All-in-One Search")
 st.markdown("Search across **Google**, **GitHub**, and **Academic Papers** simultaneously.")
 
